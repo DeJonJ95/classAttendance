@@ -10,7 +10,6 @@
         body {
             font-family: 'Inter', sans-serif;
         }
-        /* Styles for the attendee cards */
         .attendee-card {
             border: 1px solid #e2e8f0;
             padding: 12px;
@@ -23,24 +22,24 @@
             cursor: pointer;
         }
         .attendee-card.not-present {
-            background-color: #f1f5f9; /* slate-100 */
-            color: #475569; /* slate-600 */
-            border-color: #e2e8f0; /* slate-200 */
+            background-color: #f1f5f9;
+            color: #475569;
+            border-color: #e2e8f0;
         }
         .attendee-card.present-attendant {
-            background-color: #dbeafe; /* blue-200 */
-            color: #1e40af; /* blue-800 */
-            border-color: #93c5fd; /* blue-300 */
+            background-color: #dbeafe;
+            color: #1e40af;
+            border-color: #93c5fd;
         }
         .attendee-card.present-balancer {
-            background-color: #d1fae5; /* green-200 */
-            color: #065f46; /* green-800 */
-            border-color: #a7f3d0; /* green-300 */
+            background-color: #d1fae5;
+            color: #065f46;
+            border-color: #a7f3d0;
         }
         .attendee-card.present-cbs {
-            background-color: #fee2e2; /* red-200 */
-            color: #991b1b; /* red-800 */
-            border-color: #fca5a5; /* red-300 */
+            background-color: #fee2e2;
+            color: #991b1b;
+            border-color: #fca5a5;
         }
         .section-header {
             display: flex;
@@ -100,20 +99,25 @@
             <!-- Message Box -->
             <div id="messageBox" class="hidden max-w-2xl mx-auto text-center p-4 mb-8 rounded-lg"></div>
 
+            <!-- Admin Section -->
+            <div class="max-w-md mx-auto bg-white p-6 rounded-xl shadow-md mb-12">
+                 <h3 class="text-lg font-medium text-gray-900 mb-4 text-center">Admin Tools</h3>
+                 <button id="downloadButton" class="w-full bg-gray-700 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-300">
+                    Download Daily Report (CSV)
+                </button>
+            </div>
+
             <!-- Attendance Chart -->
             <div class="bg-white p-4 sm:p-6 rounded-xl shadow-md">
                 <div id="attendanceChart" class="space-y-8">
-                    <!-- Not Signed In Section -->
+                    <!-- Sections will be populated by JS -->
                     <div>
                         <div class="section-header">
                             <h3 class="section-title">Not Yet Signed In</h3>
                             <span id="not-present-counter" class="section-counter">0</span>
                         </div>
-                        <div id="not-present-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                           <!-- Initial names will be populated here -->
-                        </div>
+                        <div id="not-present-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
                     </div>
-                     <!-- Seating Section -->
                     <div>
                         <div class="section-header">
                             <h3 class="section-title">Attendants (Seated)</h3>
@@ -121,7 +125,6 @@
                         </div>
                         <div id="attendant-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 min-h-[60px]"></div>
                     </div>
-                    <!-- Balancer Section -->
                     <div>
                         <div class="section-header">
                             <h3 class="section-title">Balancers</h3>
@@ -129,7 +132,6 @@
                         </div>
                         <div id="balancer-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 min-h-[60px]"></div>
                     </div>
-                    <!-- CBS Section -->
                     <div>
                         <div class="section-header">
                             <h3 class="section-title">CBS</h3>
@@ -161,7 +163,13 @@ Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laur
 
         function populateForm(names) {
             const nameSelect = document.getElementById('nameSelect');
-            attendees = names.map(name => ({ name, present: false, role: null, id: name.replace(/\s+/g, '-') }));
+            attendees = names.map(name => ({
+                name,
+                present: false,
+                role: null,
+                id: name.replace(/\s+/g, '-'),
+                signInTime: null
+            }));
             
             attendees
                 .sort((a, b) => a.name.localeCompare(b.name))
@@ -175,7 +183,7 @@ Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laur
 
         function renderInitialChart() {
             const notPresentSection = document.getElementById('not-present-section');
-            notPresentSection.innerHTML = ''; // Clear previous
+            notPresentSection.innerHTML = '';
             attendees.forEach(attendee => {
                 const card = createAttendeeCard(attendee);
                 notPresentSection.appendChild(card);
@@ -238,7 +246,10 @@ Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laur
             const message = attendee.present 
                 ? `${name} was already signed in. Their role has been updated to ${role}.`
                 : `Welcome, ${name}! Your attendance has been marked.`;
-
+            
+            if (!attendee.present) {
+                 attendee.signInTime = new Date(); // Record sign-in time
+            }
             attendee.present = true;
             attendee.role = role;
 
@@ -253,12 +264,43 @@ Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laur
             document.getElementById('nameSelect').focus();
         }
 
+        function downloadAttendanceCSV() {
+            const presentAttendees = attendees.filter(a => a.present);
+
+            if (presentAttendees.length === 0) {
+                showMessage('No one has signed in yet. Nothing to download.', 'error');
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Name,Role,SignInTime\r\n"; // CSV Header
+
+            presentAttendees.forEach(attendee => {
+                const time = attendee.signInTime.toLocaleTimeString('en-US');
+                const row = `${attendee.name},${attendee.role},${time}`;
+                csvContent += row + "\r\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            
+            const today = new Date();
+            const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            link.setAttribute("download", `attendance_report_${dateString}.csv`);
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const nameList = parseNames(nameData);
             populateForm(nameList);
             renderInitialChart();
 
             document.getElementById('attendanceForm').addEventListener('submit', handleFormSubmit);
+            document.getElementById('downloadButton').addEventListener('click', downloadAttendanceCSV);
         });
     </script>
 </body>
