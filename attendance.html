@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Attendance Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Styles for the attendee cards */
+        .attendee-card {
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            text-align: center;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            cursor: pointer;
+        }
+        .attendee-card.not-present {
+            background-color: #f1f5f9; /* slate-100 */
+            color: #475569; /* slate-600 */
+            border-color: #e2e8f0; /* slate-200 */
+        }
+        .attendee-card.present-attendant {
+            background-color: #dbeafe; /* blue-200 */
+            color: #1e40af; /* blue-800 */
+            border-color: #93c5fd; /* blue-300 */
+        }
+        .attendee-card.present-balancer {
+            background-color: #d1fae5; /* green-200 */
+            color: #065f46; /* green-800 */
+            border-color: #a7f3d0; /* green-300 */
+        }
+        .attendee-card.present-cbs {
+            background-color: #fee2e2; /* red-200 */
+            color: #991b1b; /* red-800 */
+            border-color: #fca5a5; /* red-300 */
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom-width: 1px;
+            padding-bottom: 0.5rem;
+        }
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .section-counter {
+            background-color: #e5e7eb;
+            color: #374151;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Class Attendance</h1>
+            <p class="text-gray-600 mt-2">Please sign in to mark your attendance.</p>
+        </header>
+
+        <main>
+            <!-- Attendance Form -->
+            <div class="max-w-md mx-auto bg-white p-6 rounded-xl shadow-md mb-12">
+                <form id="attendanceForm">
+                    <div class="mb-4">
+                        <label for="nameSelect" class="block text-sm font-medium text-gray-700 mb-2">Select Your Name</label>
+                        <select id="nameSelect" name="name" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                            <option value="">-- Please select your name --</option>
+                        </select>
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Your Role</label>
+                        <select id="roleSelect" name="role" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                            <option value="attendant">Attendant (Seated)</option>
+                            <option value="balancer">Balancer</option>
+                            <option value="cbs">CBS</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-300">
+                        Sign In
+                    </button>
+                </form>
+            </div>
+
+            <!-- Message Box -->
+            <div id="messageBox" class="hidden max-w-2xl mx-auto text-center p-4 mb-8 rounded-lg"></div>
+
+            <!-- Attendance Chart -->
+            <div class="bg-white p-4 sm:p-6 rounded-xl shadow-md">
+                <div id="attendanceChart" class="space-y-8">
+                    <!-- Not Signed In Section -->
+                    <div>
+                        <div class="section-header">
+                            <h3 class="section-title">Not Yet Signed In</h3>
+                            <span id="not-present-counter" class="section-counter">0</span>
+                        </div>
+                        <div id="not-present-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                           <!-- Initial names will be populated here -->
+                        </div>
+                    </div>
+                     <!-- Seating Section -->
+                    <div>
+                        <div class="section-header">
+                            <h3 class="section-title">Attendants (Seated)</h3>
+                             <span id="attendant-counter" class="section-counter">0</span>
+                        </div>
+                        <div id="attendant-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 min-h-[60px]"></div>
+                    </div>
+                    <!-- Balancer Section -->
+                    <div>
+                        <div class="section-header">
+                            <h3 class="section-title">Balancers</h3>
+                            <span id="balancer-counter" class="section-counter">0</span>
+                        </div>
+                        <div id="balancer-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 min-h-[60px]"></div>
+                    </div>
+                    <!-- CBS Section -->
+                    <div>
+                        <div class="section-header">
+                            <h3 class="section-title">CBS</h3>
+                            <span id="cbs-counter" class="section-counter">0</span>
+                        </div>
+                        <div id="cbs-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 min-h-[60px]"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        const nameData = `
+John Smith,Jane Doe,Peter Jones,Mary Johnson,Robert Brown,Patricia Garcia,
+Michael Williams,Linda Davis,David Rodriguez,Jennifer Martinez,William Hernandez,Elizabeth Gonzalez,
+James Wilson,Barbara Anderson,Charles Thomas,Susan Jackson,Joseph Taylor,Margaret Moore,
+Richard White,Jessica Harris,Daniel Martin,Sarah Thompson,Thomas Anderson,Karen Clark,
+Christopher Lewis,Nancy Robinson,Matthew Walker,Betty Hall,Donald Young,Helen Allen,
+Anthony King,Sandra Wright,Mark Scott,Donna Green,Paul Adams,Carol Baker,
+Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laura Turner
+`;
+
+        let attendees = [];
+
+        function parseNames(nameList) {
+            return nameList.trim().split(',').map(name => name.trim()).filter(name => name !== '');
+        }
+
+        function populateForm(names) {
+            const nameSelect = document.getElementById('nameSelect');
+            attendees = names.map(name => ({ name, present: false, role: null, id: name.replace(/\s+/g, '-') }));
+            
+            attendees
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .forEach(attendee => {
+                    const option = document.createElement('option');
+                    option.value = attendee.name;
+                    option.textContent = attendee.name;
+                    nameSelect.appendChild(option);
+                });
+        }
+
+        function renderInitialChart() {
+            const notPresentSection = document.getElementById('not-present-section');
+            notPresentSection.innerHTML = ''; // Clear previous
+            attendees.forEach(attendee => {
+                const card = createAttendeeCard(attendee);
+                notPresentSection.appendChild(card);
+            });
+            updateCounters();
+        }
+
+        function createAttendeeCard(attendee) {
+            const card = document.createElement('div');
+            card.id = `card-${attendee.id}`;
+            card.className = 'attendee-card not-present';
+            card.textContent = attendee.name;
+            card.onclick = () => {
+                document.getElementById('nameSelect').value = attendee.name;
+                document.getElementById('roleSelect').focus();
+            };
+            return card;
+        }
+
+        function updateCounters() {
+            const notPresentCount = attendees.filter(a => !a.present).length;
+            const attendantCount = attendees.filter(a => a.present && a.role === 'attendant').length;
+            const balancerCount = attendees.filter(a => a.present && a.role === 'balancer').length;
+            const cbsCount = attendees.filter(a => a.present && a.role === 'cbs').length;
+
+            document.getElementById('not-present-counter').textContent = notPresentCount;
+            document.getElementById('attendant-counter').textContent = attendantCount;
+            document.getElementById('balancer-counter').textContent = balancerCount;
+            document.getElementById('cbs-counter').textContent = cbsCount;
+        }
+
+        function showMessage(message, type) {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.textContent = message;
+            messageBox.className = `max-w-2xl mx-auto text-center p-4 mb-8 rounded-lg ${
+                type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`;
+            messageBox.classList.remove('hidden');
+            setTimeout(() => messageBox.classList.add('hidden'), 5000);
+        }
+
+        function handleFormSubmit(event) {
+            event.preventDefault();
+            const name = document.getElementById('nameSelect').value;
+            const role = document.getElementById('roleSelect').value;
+
+            if (!name) {
+                showMessage('Please select your name.', 'error');
+                return;
+            }
+
+            const attendee = attendees.find(a => a.name === name);
+            const card = document.getElementById(`card-${attendee.id}`);
+
+            if (!attendee || !card) {
+                showMessage('Error: Could not find attendee card.', 'error');
+                return;
+            }
+
+            const message = attendee.present 
+                ? `${name} was already signed in. Their role has been updated to ${role}.`
+                : `Welcome, ${name}! Your attendance has been marked.`;
+
+            attendee.present = true;
+            attendee.role = role;
+
+            card.className = `attendee-card present-${role}`;
+            document.getElementById(`${role}-section`).appendChild(card);
+
+            updateCounters();
+            showMessage(message, 'success');
+            
+            document.getElementById('attendanceForm').reset();
+            document.getElementById('nameSelect').value = '';
+            document.getElementById('nameSelect').focus();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const nameList = parseNames(nameData);
+            populateForm(nameList);
+            renderInitialChart();
+
+            document.getElementById('attendanceForm').addEventListener('submit', handleFormSubmit);
+        });
+    </script>
+</body>
+</html>
