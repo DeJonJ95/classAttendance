@@ -23,7 +23,7 @@
         .section-counter { background-color: #e5e7eb; color: #374151; font-size: 0.875rem; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 9999px; }
         .loading-overlay { position: fixed; inset: 0; background-color: rgba(255, 255, 255, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; text-align: center; padding: 1rem; }
         .loading-text { font-size: 1.25rem; font-semibold: 600; color: #1f2937; }
-        .error-text { font-size: 1rem; color: #991b1b; margin-top: 0.5rem; }
+        .error-text { font-size: 1rem; color: #991b1b; margin-top: 0.5rem; max-width: 600px; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -40,7 +40,7 @@
         </header>
 
         <main>
-            <!-- Form and Chart are identical in structure -->
+            <!-- Form and Chart -->
             <div class="max-w-md mx-auto bg-white p-6 rounded-xl shadow-md mb-12">
                 <form id="attendanceForm">
                     <div class="mb-4">
@@ -89,10 +89,19 @@
     </div>
 
     <script type="module">
-        // Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAD5c35jwsWmo6OuQh6VXX1CclmWf4yDGQ",
+            authDomain: "class-attendance-app-45e44.firebaseapp.com",
+            projectId: "class-attendance-app-45e44",
+            storageBucket: "class-attendance-app-45e44.firebasestorage.app",
+            messagingSenderId: "138849480414",
+            appId: "1:138849480414:web:3a6e8f7f3f731c613d5c4f",
+            measurementId: "G-Y77K57MXH0"
+        };
 
         const masterNameList = `
 John Smith,Jane Doe,Peter Jones,Mary Johnson,Robert Brown,Patricia Garcia,
@@ -113,38 +122,39 @@ Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laur
         
         async function setupFirebase() {
             try {
-                loadingText.textContent = "Verifying configuration...";
-                if (typeof __firebase_config === 'undefined' || __firebase_config === '""') {
-                    throw new Error("Firebase config not found. Please ensure the app is running in the correct environment.");
+                let finalFirebaseConfig;
+                if (typeof __firebase_config !== 'undefined' && __firebase_config !== '""') {
+                    finalFirebaseConfig = JSON.parse(__firebase_config);
+                } else {
+                    finalFirebaseConfig = userProvidedConfig;
                 }
-                const firebaseConfig = JSON.parse(__firebase_config);
-                
-                loadingText.textContent = "Initializing Firebase...";
-                const app = initializeApp(firebaseConfig);
+
+                if (!finalFirebaseConfig || !finalFirebaseConfig.apiKey) {
+                    throw new Error("Firebase config not found. Please paste your configuration object into the 'userProvidedConfig' variable in the script.");
+                }
+
+                const app = initializeApp(finalFirebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                loadingText.textContent = "Authenticating...";
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token !== '""') {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
 
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const appId = finalFirebaseConfig.appId || 'default-app-id';
                 const today = new Date();
                 const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                 const attendancePath = `/artifacts/${appId}/public/data/attendance/${dateString}`;
                 attendanceCollectionRef = collection(db, attendancePath);
 
-                loadingText.textContent = "Loading live data...";
                 listenForUpdates();
                 
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
                 loadingText.textContent = "Connection Failed";
-                // Display a more helpful error message
-                errorText.textContent = `Details: ${error.message} (Code: ${error.code || 'N/A'})`;
+                errorText.textContent = `Details: ${error.message}`;
             }
         }
 
