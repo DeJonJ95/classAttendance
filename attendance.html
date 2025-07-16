@@ -93,20 +93,16 @@
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // =================================================================================
-        // PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE
-        // IMPORTANT: Paste the keys between the curly braces { }. 
-        // Do NOT delete `const firebaseConfig =` or the final `};`
-        // =================================================================================
         const firebaseConfig = {
-            // apiKey: "AIza...",
-            // authDomain: "your-project.firebaseapp.com",
-            // projectId: "your-project-id",
-            // storageBucket: "your-project.appspot.com",
-            // messagingSenderId: "123456789",
-            // appId: "1:12345:web:abcdef"
+            apiKey: "AIzaSyAD5c35jwsWmo6OuQh6VXX1CclmWf4yDGQ",
+            authDomain: "class-attendance-app-45e44.firebaseapp.com",
+            projectId: "class-attendance-app-45e44",
+            storageBucket: "class-attendance-app-45e44.firebasestorage.app",
+            messagingSenderId: "138849480414",
+            appId: "1:138849480414:web:3a6e8f7f3f731c613d5c4f",
+            measurementId: "G-Y77K57MXH0"
         };
-        // =================================================================================
+
 
         const masterNameList = `
 John Smith,Jane Doe,Peter Jones,Mary Johnson,Robert Brown,Patricia Garcia,
