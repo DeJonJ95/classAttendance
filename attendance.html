@@ -21,13 +21,16 @@
         .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom-width: 1px; padding-bottom: 0.5rem; }
         .section-title { font-size: 1.25rem; font-weight: 600; color: #1f2937; }
         .section-counter { background-color: #e5e7eb; color: #374151; font-size: 0.875rem; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 9999px; }
-        .loading-overlay { position: fixed; inset: 0; background-color: rgba(255, 255, 255, 0.8); display: flex; align-items: center; justify-content: center; z-index: 50; }
+        .loading-overlay { position: fixed; inset: 0; background-color: rgba(255, 255, 255, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; text-align: center; padding: 1rem; }
+        .loading-text { font-size: 1.25rem; font-semibold: 600; color: #1f2937; }
+        .error-text { font-size: 1rem; color: #991b1b; margin-top: 0.5rem; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
     <div id="loading" class="loading-overlay">
-        <p class="text-lg font-semibold">Connecting to Live Attendance...</p>
+        <p id="loading-text" class="loading-text">Connecting to Live Attendance...</p>
+        <p id="error-text" class="error-text"></p>
     </div>
 
     <div class="container mx-auto p-4 md:p-8">
@@ -91,7 +94,6 @@
         import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- Master List of All Potential Attendees ---
         const masterNameList = `
 John Smith,Jane Doe,Peter Jones,Mary Johnson,Robert Brown,Patricia Garcia,
 Michael Williams,Linda Davis,David Rodriguez,Jennifer Martinez,William Hernandez,Elizabeth Gonzalez,
@@ -102,55 +104,60 @@ Anthony King,Sandra Wright,Mark Scott,Donna Green,Paul Adams,Carol Baker,
 Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laura Turner
 `.trim().split(',').map(name => name.trim()).filter(name => name !== '').sort();
 
-        // --- Firebase Setup and State ---
         let db, auth;
         let attendanceCollectionRef;
-        let unsubscribe; // To detach the listener later
+        let unsubscribe;
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const today = new Date();
-        const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const loadingText = document.getElementById('loading-text');
+        const errorText = document.getElementById('error-text');
         
         async function setupFirebase() {
             try {
+                loadingText.textContent = "Verifying configuration...";
+                if (typeof __firebase_config === 'undefined' || __firebase_config === '""') {
+                    throw new Error("Firebase config not found. Please ensure the app is running in the correct environment.");
+                }
                 const firebaseConfig = JSON.parse(__firebase_config);
+                
+                loadingText.textContent = "Initializing Firebase...";
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                if (typeof __initial_auth_token !== 'undefined') {
+                loadingText.textContent = "Authenticating...";
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token !== '""') {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
 
-                // Path to today's attendance data
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const today = new Date();
+                const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                 const attendancePath = `/artifacts/${appId}/public/data/attendance/${dateString}`;
                 attendanceCollectionRef = collection(db, attendancePath);
 
-                // Start listening for real-time updates
+                loadingText.textContent = "Loading live data...";
                 listenForUpdates();
                 
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
-                document.getElementById('loading').textContent = "Error: Could not connect to the database.";
+                loadingText.textContent = "Connection Failed";
+                // Display a more helpful error message
+                errorText.textContent = `Details: ${error.message} (Code: ${error.code || 'N/A'})`;
             }
         }
 
-        // --- UI Rendering ---
         function renderChart(presentAttendees) {
-            // Clear all sections first
             document.getElementById('not-present-section').innerHTML = '';
             document.getElementById('attendant-section').innerHTML = '';
             document.getElementById('balancer-section').innerHTML = '';
             document.getElementById('cbs-section').innerHTML = '';
 
             const presentNames = new Set(presentAttendees.map(p => p.name));
-
             masterNameList.forEach(name => {
                 const id = name.replace(/\s+/g, '-');
                 const presentAttendee = presentAttendees.find(p => p.name === name);
-
                 const card = document.createElement('div');
                 card.id = `card-${id}`;
                 card.textContent = name;
@@ -159,7 +166,6 @@ Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laur
                     document.getElementById('nameSelect').value = name;
                     document.getElementById('roleSelect').focus();
                 };
-
                 if (presentAttendee) {
                     card.classList.add(`present-${presentAttendee.role}`);
                     document.getElementById(`${presentAttendee.role}-section`).appendChild(card);
@@ -198,20 +204,16 @@ Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laur
             setTimeout(() => messageBox.classList.add('hidden'), 5000);
         }
 
-        // --- Data Handling ---
         function listenForUpdates() {
-            if (unsubscribe) unsubscribe(); // Detach any old listener
-
+            if (unsubscribe) unsubscribe(); 
             unsubscribe = onSnapshot(attendanceCollectionRef, (snapshot) => {
-                const presentAttendees = [];
-                snapshot.forEach(doc => {
-                    presentAttendees.push(doc.data());
-                });
+                const presentAttendees = snapshot.docs.map(doc => doc.data());
                 renderChart(presentAttendees);
-                document.getElementById('loading').style.display = 'none'; // Hide loading screen
+                document.getElementById('loading').style.display = 'none';
             }, (error) => {
                 console.error("Error listening to attendance updates:", error);
-                document.getElementById('loading').textContent = "Error: Could not read live data.";
+                loadingText.textContent = "Error Reading Data";
+                errorText.textContent = `Details: ${error.message} (Code: ${error.code || 'N/A'})`;
             });
         }
 
@@ -219,34 +221,24 @@ Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laur
             event.preventDefault();
             const name = document.getElementById('nameSelect').value;
             const role = document.getElementById('roleSelect').value;
-
             if (!name) {
                 showMessage('Please select your name.', 'error');
                 return;
             }
-            
-            const attendeeData = {
-                name: name,
-                role: role,
-                signInTime: serverTimestamp() // Use server time for accuracy
-            };
-
+            const attendeeData = { name: name, role: role, signInTime: serverTimestamp() };
             try {
-                // Use the name (slugified) as the document ID to prevent duplicates
                 const docId = name.replace(/\s+/g, '-');
                 await setDoc(doc(attendanceCollectionRef, docId), attendeeData);
                 showMessage(`Welcome, ${name}! Your attendance is saved.`, 'success');
             } catch (error) {
                 console.error("Error saving attendance:", error);
-                showMessage('Error: Could not save attendance. Please try again.', 'error');
+                showMessage(`Error: Could not save attendance. (${error.code})`, 'error');
             }
-            
             document.getElementById('attendanceForm').reset();
             document.getElementById('nameSelect').value = '';
             document.getElementById('nameSelect').focus();
         }
 
-        // --- Initial Load ---
         document.addEventListener('DOMContentLoaded', () => {
             populateForm();
             setupFirebase();
