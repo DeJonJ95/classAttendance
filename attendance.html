@@ -90,18 +90,23 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // =================================================================================
+        // PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE
+        // IMPORTANT: Paste the keys between the curly braces { }. 
+        // Do NOT delete `const firebaseConfig =` or the final `};`
+        // =================================================================================
         const firebaseConfig = {
-            apiKey: "AIzaSyAD5c35jwsWmo6OuQh6VXX1CclmWf4yDGQ",
-            authDomain: "class-attendance-app-45e44.firebaseapp.com",
-            projectId: "class-attendance-app-45e44",
-            storageBucket: "class-attendance-app-45e44.firebasestorage.app",
-            messagingSenderId: "138849480414",
-            appId: "1:138849480414:web:3a6e8f7f3f731c613d5c4f",
-            measurementId: "G-Y77K57MXH0"
+            // apiKey: "AIza...",
+            // authDomain: "your-project.firebaseapp.com",
+            // projectId: "your-project-id",
+            // storageBucket: "your-project.appspot.com",
+            // messagingSenderId: "123456789",
+            // appId: "1:12345:web:abcdef"
         };
+        // =================================================================================
 
         const masterNameList = `
 John Smith,Jane Doe,Peter Jones,Mary Johnson,Robert Brown,Patricia Garcia,
@@ -122,31 +127,22 @@ Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laur
         
         async function setupFirebase() {
             try {
-                let finalFirebaseConfig;
-                if (typeof __firebase_config !== 'undefined' && __firebase_config !== '""') {
-                    finalFirebaseConfig = JSON.parse(__firebase_config);
-                } else {
-                    finalFirebaseConfig = userProvidedConfig;
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    throw new Error("Firebase config not found or is incomplete. Please paste your configuration object into the 'firebaseConfig' variable in the script.");
                 }
 
-                if (!finalFirebaseConfig || !finalFirebaseConfig.apiKey) {
-                    throw new Error("Firebase config not found. Please paste your configuration object into the 'userProvidedConfig' variable in the script.");
-                }
-
-                const app = initializeApp(finalFirebaseConfig);
+                const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
+                
+                await signInAnonymously(auth);
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token !== '""') {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                const appId = finalFirebaseConfig.appId || 'default-app-id';
+                const appId = firebaseConfig.appId || 'default-app-id';
                 const today = new Date();
                 const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                const attendancePath = `/artifacts/${appId}/public/data/attendance/${dateString}`;
+                // This path is simplified but less secure for multi-app environments.
+                // For this specific use case, it's acceptable.
+                const attendancePath = `/attendance/${dateString}`; 
                 attendanceCollectionRef = collection(db, attendancePath);
 
                 listenForUpdates();
@@ -223,7 +219,7 @@ Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laur
             }, (error) => {
                 console.error("Error listening to attendance updates:", error);
                 loadingText.textContent = "Error Reading Data";
-                errorText.textContent = `Details: ${error.message} (Code: ${error.code || 'N/A'})`;
+                errorText.textContent = `Please check your Firestore Security Rules. Details: ${error.message} (Code: ${error.code || 'N/A'})`;
             });
         }
 
