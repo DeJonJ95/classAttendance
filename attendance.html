@@ -138,7 +138,7 @@ Steven Nelson,Kimberly Carter,Andrew Mitchell,Michelle Perez,Joshua Roberts,Laur
                 const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                 // This path is simplified but less secure for multi-app environments.
                 // For this specific use case, it's acceptable.
-                const attendancePath = `/attendance/${dateString}`; 
+                const attendancePath = `/attendance/${dateString}/attendees`; 
                 attendanceCollectionRef = collection(db, attendancePath);
 
                 listenForUpdates();
