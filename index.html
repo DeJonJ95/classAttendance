@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Class Attendance Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .attendee-card {
+            border: 1px solid #e2e8f0; padding: 12px; text-align: center;
+            border-radius: 8px; font-size: 14px; font-weight: 500;
+            transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            cursor: pointer;
+        }
+        .attendee-card.not-present { background-color: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+        .attendee-card.present-attendant { background-color: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+        .attendee-card.present-balancer { background-color: #d1fae5; color: #065f46; border-color: #a7f3d0; }
+        .attendee-card.present-cbs { background-color: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom-width: 1px; padding-bottom: 0.5rem; }
+        .section-title { font-size: 1.25rem; font-weight: 600; color: #1f2937; }
+        .section-counter { background-color: #e5e7eb; color: #374151; font-size: 0.875rem; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 9999px; }
+        .loading-overlay { position: fixed; inset: 0; background-color: rgba(255, 255, 255, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; text-align: center; padding: 1rem; }
+        .loading-text { font-size: 1.25rem; font-semibold: 600; color: #1f2937; }
+        .error-text { font-size: 1rem; color: #991b1b; margin-top: 0.5rem; max-width: 600px; }
+        .class-selector-btn {
+            background-color: #fff; border: 1px solid #d1d5db; color: #374151;
+            padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .class-selector-btn.active {
+            background-color: #4f46e5; border-color: #4f46e5; color: #fff;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div id="loading" class="loading-overlay">
+        <p id="loading-text" class="loading-text">Initializing...</p>
+        <p id="error-text" class="error-text"></p>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Class Attendance</h1>
+            <p id="current-session-display" class="text-gray-600 mt-2">Please select a class to begin.</p>
+        </header>
+
+        <main>
+            <!-- Class Selector -->
+            <div id="class-selector" class="flex justify-center space-x-4 mb-8">
+                <button class="class-selector-btn" data-class="morning">Morning Class</button>
+                <button class="class-selector-btn" data-class="afternoon">Afternoon Class</button>
+            </div>
+
+            <!-- App Content (hidden until class is selected) -->
+            <div id="app-content" class="hidden">
+                <div class="max-w-md mx-auto bg-white p-6 rounded-xl shadow-md mb-12">
+                    <form id="attendanceForm">
+                        <div class="mb-4">
+                            <label for="nameSelect" class="block text-sm font-medium text-gray-700 mb-2">Select Your Name</label>
+                            <select id="nameSelect" name="name" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"></select>
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Select Your Role</label>
+                            <select id="roleSelect" name="role" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                                <option value="attendant">Attendant (Seated)</option>
+                                <option value="balancer">Balancer</option>
+                                <option value="cbs">CBS</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700">Sign In</button>
+                    </form>
+                </div>
+
+                <div id="messageBox" class="hidden max-w-2xl mx-auto text-center p-4 mb-8 rounded-lg"></div>
+
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-md">
+                    <div id="attendanceChart" class="space-y-8">
+                        <div>
+                            <div class="section-header"><h3 class="section-title">Not Yet Signed In</h3><span id="not-present-counter" class="section-counter">0</span></div>
+                            <div id="not-present-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+                        </div>
+                        <div>
+                            <div class="section-header"><h3 class="section-title">Attendants (Seated)</h3><span id="attendant-counter" class="section-counter">0</span></div>
+                            <div id="attendant-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 min-h-[60px]"></div>
+                        </div>
+                        <div>
+                            <div class="section-header"><h3 class="section-title">Balancers</h3><span id="balancer-counter" class="section-counter">0</span></div>
+                            <div id="balancer-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 min-h-[60px]"></div>
+                        </div>
+                        <div>
+                            <div class="section-header"><h3 class="section-title">CBS</h3><span id="cbs-counter" class="section-counter">0</span></div>
+                            <div id="cbs-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 min-h-[60px]"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAD5c35jwsWmo6OuQh6VXX1CclmWf4yDGQ",
+            authDomain: "class-attendance-app-45e44.firebaseapp.com",
+            projectId: "class-attendance-app-45e44",
+            storageBucket: "class-attendance-app-45e44.appspot.com",
+            messagingSenderId: "138849480414",
+            appId: "1:138849480414:web:3a6e8f7f3f731c613d5c4f",
+            measurementId: "G-Y77K57MXH0"
+        };
+        
+        let db, auth;
+        let attendanceCollectionRef;
+        let unsubscribe;
+        let activeClass = null;
+        let masterNameList = [];
+        let classRosters = {};
+
+        const loadingOverlay = document.getElementById('loading');
+        const loadingText = document.getElementById('loading-text');
+        const errorText = document.getElementById('error-text');
+        
+        async function initialize() {
+            try {
+                loadingText.textContent = "Connecting...";
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                await signInAnonymously(auth);
+
+                loadingText.textContent = "Fetching Class Rosters...";
+                await fetchRosters();
+
+                loadingOverlay.style.display = 'none';
+            } catch (error) {
+                console.error("Initialization failed:", error);
+                loadingText.textContent = "Initialization Failed";
+                errorText.textContent = `Details: ${error.message}`;
+            }
+        }
+
+        async function fetchRosters() {
+            try {
+                const morningDoc = await getDoc(doc(db, "rosters", "morning"));
+                const afternoonDoc = await getDoc(doc(db, "rosters", "afternoon"));
+                classRosters.morning = morningDoc.exists() ? morningDoc.data().names.sort() : [];
+                classRosters.afternoon = afternoonDoc.exists() ? afternoonDoc.data().names.sort() : [];
+            } catch (error) {
+                 errorText.textContent = "Could not fetch rosters. Please set them in the admin dashboard.";
+                 console.error("Error fetching rosters:", error);
+            }
+        }
+
+        function selectClass(className) {
+            if (unsubscribe) unsubscribe(); 
+
+            activeClass = className;
+            masterNameList = classRosters[activeClass] || [];
+
+            if (masterNameList.length === 0) {
+                alert(`The roster for the ${className} class is empty. Please set it in the admin dashboard.`);
+                return;
+            }
+
+            document.getElementById('current-session-display').textContent = `Current Session: ${className.charAt(0).toUpperCase() + className.slice(1)} Class`;
+            document.querySelectorAll('.class-selector-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.class === className);
+            });
+            document.getElementById('app-content').style.display = 'block';
+
+            populateForm();
+            renderChart([]);
+            
+            const today = new Date();
+            const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const attendancePath = `attendance/${dateString}/${activeClass}`; 
+            attendanceCollectionRef = collection(db, attendancePath);
+
+            listenForUpdates();
+        }
+
+        function listenForUpdates() {
+            loadingText.textContent = "Loading live data...";
+            loadingOverlay.style.display = 'flex';
+
+            unsubscribe = onSnapshot(attendanceCollectionRef, (snapshot) => {
+                const presentAttendees = snapshot.docs.map(doc => doc.data());
+                renderChart(presentAttendees);
+                loadingOverlay.style.display = 'none';
+            }, (error) => {
+                console.error("Error listening to updates:", error);
+                loadingText.textContent = "Error Reading Data";
+                errorText.textContent = `Please check your Firestore Security Rules. Details: ${error.message}`;
+            });
+        }
+
+        function renderChart(presentAttendees) {
+            ['not-present', 'attendant', 'balancer', 'cbs'].forEach(sec => {
+                document.getElementById(`${sec}-section`).innerHTML = '';
+            });
+
+            const presentNames = new Set(presentAttendees.map(p => p.name));
+            masterNameList.forEach(name => {
+                const presentAttendee = presentAttendees.find(p => p.name === name);
+                const card = createCard(name, presentAttendee);
+                const section = presentAttendee ? `${presentAttendee.role}-section` : 'not-present-section';
+                document.getElementById(section).appendChild(card);
+            });
+            updateCounters();
+        }
+
+        function createCard(name, attendeeData) {
+            const card = document.createElement('div');
+            card.id = `card-${name.replace(/\s+/g, '-')}`;
+            card.textContent = name;
+            card.className = 'attendee-card';
+            card.onclick = () => {
+                document.getElementById('nameSelect').value = name;
+                document.getElementById('roleSelect').focus();
+            };
+            card.classList.add(attendeeData ? `present-${attendeeData.role}` : 'not-present');
+            return card;
+        }
+
+        function updateCounters() {
+            ['not-present', 'attendant', 'balancer', 'cbs'].forEach(sec => {
+                const count = document.getElementById(`${sec}-section`).children.length;
+                document.getElementById(`${sec}-counter`).textContent = count;
+            });
+        }
+        
+        function populateForm() {
+            const nameSelect = document.getElementById('nameSelect');
+            nameSelect.innerHTML = '<option value="">-- Please select your name --</option>';
+            masterNameList.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                nameSelect.appendChild(option);
+            });
+        }
+
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            const name = document.getElementById('nameSelect').value;
+            const role = document.getElementById('roleSelect').value;
+            if (!name) return;
+
+            const attendeeData = { name, role, signInTime: serverTimestamp() };
+            try {
+                const docId = name.replace(/\s+/g, '-');
+                await setDoc(doc(attendanceCollectionRef, docId), attendeeData);
+                showMessage(`Welcome, ${name}! Your attendance is saved.`, 'success');
+            } catch (error) {
+                console.error("Error saving attendance:", error);
+                showMessage(`Error: Could not save attendance. (${error.code})`, 'error');
+            }
+            document.getElementById('attendanceForm').reset();
+        }
+        
+        function showMessage(message, type) {
+            const box = document.getElementById('messageBox');
+            box.textContent = message;
+            box.className = `max-w-2xl mx-auto text-center p-4 mb-8 rounded-lg ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+            box.classList.remove('hidden');
+            setTimeout(() => box.classList.add('hidden'), 5000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initialize();
+            document.getElementById('class-selector').addEventListener('click', (e) => {
+                if (e.target.matches('.class-selector-btn')) {
+                    selectClass(e.target.dataset.class);
+                }
+            });
+            document.getElementById('attendanceForm').addEventListener('submit', handleFormSubmit);
+        });
+    </script>
+</body>
+</html>
